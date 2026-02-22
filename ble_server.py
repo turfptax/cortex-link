@@ -146,7 +146,6 @@ class BLEServer:
                     message = str(bytes(rx_buf[:idx]))
                 rx_buf = rx_buf[idx + 1:]
 
-                print("BLE RX:", message)
                 self._notify_status("rx", message)
 
                 if self._on_receive:
