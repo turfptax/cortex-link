@@ -472,7 +472,7 @@ def get_context() -> str:
     start of every conversation to understand what the user is working on.
     """
     try:
-        return _send_cmd("get_context", timeout=10)
+        return _send_cmd("get_context", timeout=20)
     except Exception as e:
         return "Error: {}".format(e)
 

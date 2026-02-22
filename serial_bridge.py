@@ -19,9 +19,9 @@ import time
 
 _CHUNK_SIZE = 200        # Safe BLE notification MTU chunk size
 _CHUNK_PAYLOAD = _CHUNK_SIZE - 1  # Messages > this use CHUNK:n/N: protocol
-_POLL_TIMEOUT_MS = 100   # select.poll() timeout
+_POLL_TIMEOUT_MS = 10    # select.poll() timeout (low to avoid blocking BLE rx)
 _BUF_OVERFLOW = 4096     # Clear buffer if this big without \n
-_CHUNK_TIMEOUT_MS = 5000 # Discard incomplete chunk sequences after 5s
+_CHUNK_TIMEOUT_MS = 15000 # Discard incomplete chunk sequences after 15s
 
 
 class SerialBridge:
