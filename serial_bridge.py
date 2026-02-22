@@ -17,8 +17,8 @@ import select
 import asyncio
 import time
 
-_CHUNK_PAYLOAD = 480     # Max bytes per BLE chunk payload
 _CHUNK_SIZE = 200        # Safe BLE notification MTU chunk size
+_CHUNK_PAYLOAD = _CHUNK_SIZE - 1  # Messages > this use CHUNK:n/N: protocol
 _POLL_TIMEOUT_MS = 100   # select.poll() timeout
 _BUF_OVERFLOW = 4096     # Clear buffer if this big without \n
 _CHUNK_TIMEOUT_MS = 5000 # Discard incomplete chunk sequences after 5s
@@ -165,15 +165,18 @@ class SerialBridge:
                 self._send_ble(line_bytes + b"\n")
 
     def _send_chunked(self, data_bytes):
-        """Split a large message into CHUNK:n/N: formatted BLE writes."""
+        """Split a large message into CHUNK:n/N: formatted BLE writes.
+
+        Each chunk is \n-terminated so the Pi processes them individually.
+        Each chunk must fit in a single BLE notification (_CHUNK_SIZE bytes)
+        to avoid notification coalescing/dropping.
+        """
         if not self._ble.connected:
             return
 
         data_str = data_bytes.decode("utf-8", "replace")
-        # Calculate number of chunks needed
-        # Each chunk: "CHUNK:n/N:" prefix + payload
-        # Keep payload under _CHUNK_PAYLOAD to stay within BLE limits
-        chunk_data_size = _CHUNK_PAYLOAD - 20  # Reserve space for header
+        # Reserve space for header ("CHUNK:nn/nn:" max 12) + \n (1)
+        chunk_data_size = _CHUNK_SIZE - 20  # 180 bytes of payload per chunk
         total = (len(data_str) + chunk_data_size - 1) // chunk_data_size
 
         if self._on_activity:
@@ -186,14 +189,20 @@ class SerialBridge:
         for i in range(total):
             start = i * chunk_data_size
             end = min(start + chunk_data_size, len(data_str))
-            chunk_msg = "CHUNK:{}/{}:{}".format(i + 1, total, data_str[start:end])
-            # Add \n to last chunk only
-            if i == total - 1:
-                chunk_msg += "\n"
+            # Every chunk gets \n so Pi can process each independently
+            chunk_msg = "CHUNK:{}/{}:{}\n".format(i + 1, total, data_str[start:end])
             self._send_ble(chunk_msg.encode("utf-8"))
+            # Delay between notifications to avoid BLE stack congestion
+            if i < total - 1:
+                time.sleep_ms(20)
 
     def _send_ble(self, data_bytes):
-        """Send bytes via BLE TX with MTU-aware splitting."""
+        """Send bytes as a single BLE TX notification.
+
+        Data MUST fit in a single notification (<= _CHUNK_SIZE bytes).
+        Messages exceeding this are handled by _send_chunked instead.
+        Rapid consecutive notifications can be dropped by the BLE stack.
+        """
         if not self._ble.connected:
             return
 
@@ -204,14 +213,10 @@ class SerialBridge:
             except Exception:
                 pass
 
-        if len(data_bytes) <= _CHUNK_SIZE:
-            self._ble.send_raw(data_bytes)
-        else:
-            offset = 0
-            while offset < len(data_bytes):
-                end = min(offset + _CHUNK_SIZE, len(data_bytes))
-                self._ble.send_raw(data_bytes[offset:end])
-                offset = end
+        if len(data_bytes) > _CHUNK_SIZE:
+            print("Bridge: WARNING notification {} > {} bytes".format(
+                len(data_bytes), _CHUNK_SIZE))
+        self._ble.send_raw(data_bytes)
 
     def _check_chunk_timeout(self):
         """Discard incomplete inbound chunk sequences after timeout."""
