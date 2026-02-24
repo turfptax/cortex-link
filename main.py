@@ -335,7 +335,7 @@ def _show_about():
         display.log("ESP32-S3-LCD-1.47")
         display.log("github.com/")
         display.log("  turfptax/")
-        display.log("  esp32-keymaster")
+        display.log("  cortex-link")
 
 
 def _is_ble_connected():

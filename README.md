@@ -70,7 +70,7 @@ ugit.create_config(
     ssid='YourWiFiSSID',
     password='YourWiFiPassword',
     user='turfptax',
-    repository='esp32-keymaster',
+    repository='cortex-link',
     ignore=['/lib', '/ble_secrets.json']
 )
 ```
