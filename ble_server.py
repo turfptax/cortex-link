@@ -25,10 +25,14 @@ class BLEServer:
             ble = bluetooth.BLE()
             ble.active(True)
             ble.config(mtu=512)
-            ble.config(bond=True)
+            # Bonding intentionally DISABLED. This is an app-driven GATT pipe
+            # (phone app / Pi connect directly); offering SMP bonding lets
+            # Android "pair" from Bluetooth settings, which then breaks on
+            # reconnect with stale-bond errors ("reboot or forget") and can
+            # drop unbonded links mid-negotiation. No pairing required.
+            ble.config(bond=False)
             ble.config(mitm=False)
-            ble.config(io=3)  # 3 = NoInputNoOutput (just works pairing)
-            print("BLE: active, MTU=512, bonding configured")
+            print("BLE: active, MTU=512, bonding disabled")
         except Exception as e:
             print("BLE: config error:", e)
 
